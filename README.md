@@ -1,15 +1,5 @@
 # DevOps Kata: Jenkins + Helm + OpenTofu + Minikube + Prometheus/Grafana
 
-Este repositório contém um template funcional para o desafio:
-
-- **2 clusters Minikube** (perfis `infra` e `apps`)
-- **Jenkins** rodando no cluster `infra`
-- **Observabilidade** com kube-prometheus-stack (Prometheus + Grafana) nos clusters
-- **Aplicação exemplo** (Node.js) com `/health`, `/ready` e `/metrics`
-- **Helm Chart** da aplicação com **ServiceMonitor** (Prometheus Operator) por padrão
-- **OpenTofu** para provisionar namespace/conta de serviço no cluster `apps`
-- **Jenkinsfile** com: testes, build/push de imagem, `tofu validate/plan/apply` e `helm upgrade --install`
-
 ## Pré-requisitos
 
 - Ubuntu 20.04 com `docker`, `kubectl`, `minikube`, `helm`
@@ -105,18 +95,5 @@ O Helm Chart da aplicação inclui:
 - **Anotações** no Service para scrape
 - **ServiceMonitor** (se o Prometheus Operator estiver presente)
 
-No Grafana (senha `admin` se você usou o comando acima), explore os dashboards Kubernetes e adicione painéis para a sua aplicação.
 
-## GitHub
 
-Para subir este template no seu repositório `dev-ops`:
-
-```bash
-git init
-git remote add origin git@github.com:FFucks/dev-ops.git  # ou use HTTPS
-git add .
-git commit -m "Bootstrap: Jenkins + Helm + OpenTofu + Minikube + Prometheus/Grafana"
-git push -u origin main
-```
-
-Boa sorte no desafio! Qualquer ajuste (ex.: usar Java em vez de Node), me avise que eu gero uma variante.
