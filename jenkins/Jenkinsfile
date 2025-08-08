@@ -1,0 +1,96 @@
+pipeline {
+  agent any
+
+  environment {
+    DOCKER_USER = credentials('dockerhub-user')
+    DOCKER_PASS = credentials('dockerhub-pass')
+    IMAGE = "docker.io/${DOCKER_USER}/myapp"
+    APPS_CONTEXT = 'apps'
+    INFRA_CONTEXT = 'infra'
+  }
+
+  stages {
+    stage('Checkout') {
+      steps { checkout scm }
+    }
+
+    stage('Unit Tests') {
+      steps {
+        dir('app') {
+          sh 'npm ci'
+          sh 'NODE_ENV=test npm test'
+        }
+      }
+    }
+
+    stage('Build & Push Image') {
+      steps {
+        dir('app') {
+          sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
+          sh 'docker build -t $IMAGE:$BUILD_NUMBER .'
+          sh 'docker push $IMAGE:$BUILD_NUMBER'
+          sh 'docker tag $IMAGE:$BUILD_NUMBER $IMAGE:latest'
+          sh 'docker push $IMAGE:latest'
+        }
+      }
+    }
+
+    stage('OpenTofu - Validate/Plan') {
+      steps {
+        dir('infra/tofu') {
+          sh '''
+            # instala OpenTofu binário
+            curl -L https://github.com/opentofu/opentofu/releases/latest/download/tofu_linux_amd64.tar.gz -o tofu.tgz
+            tar -xzf tofu.tgz && sudo mv tofu /usr/local/bin/
+            kubectl config use-context ${APPS_CONTEXT}
+            tofu init
+            tofu fmt -check
+            tofu validate
+            set +e
+            tofu plan -var="kubeconfig_path=$HOME/.kube/config" -var="kube_context=${APPS_CONTEXT}" -detailed-exitcode
+            CODE=$?
+            set -e
+            if [ $CODE -eq 1 ]; then
+              echo "Tofu plan error"; exit 1
+            fi
+          '''
+        }
+      }
+    }
+
+    stage('OpenTofu - Apply (manual em main)') {
+      when { branch 'main' }
+      steps {
+        input message: 'Aplicar IaC no cluster APPS?', ok: 'Aplicar'
+        dir('infra/tofu') {
+          sh 'tofu apply -auto-approve -var="kubeconfig_path=$HOME/.kube/config" -var="kube_context=${APPS_CONTEXT}"'
+        }
+      }
+    }
+
+    stage('Deploy via Helm') {
+      steps {
+        sh 'kubectl config use-context ${APPS_CONTEXT}'
+        sh '''
+          helm upgrade --install myapp charts/myapp             --namespace apps --create-namespace             --set image.repository=${IMAGE}             --set image.tag=${BUILD_NUMBER}
+        '''
+      }
+    }
+
+    stage('Smoke Test') {
+      steps {
+        sh '''
+          kubectl -n apps rollout status deploy/myapp
+          POD=$(kubectl -n apps get pod -l app=myapp -o jsonpath="{.items[0].metadata.name}")
+          kubectl -n apps exec $POD -- wget -qO- http://127.0.0.1:8080/health
+        '''
+      }
+    }
+  }
+
+  post {
+    always {
+      cleanWs()
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{{- if .Values.metrics.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "myapp.fullname" . }}
+  labels:
+    release: kube-prom-stack
+spec:
+  selector:
+    matchLabels:
+      app: {{ include "myapp.name" . }}
+  endpoints:
+    - port: http
+      path: {{ .Values.metrics.path }}
+      interval: 15s
+{{- end }}

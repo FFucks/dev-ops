@@ -1,0 +1,13 @@
+image:
+  repository: your-docker-user/myapp
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+service:
+  port: 8080
+
+metrics:
+  enabled: true
+  path: /metrics
+  port: 8080
